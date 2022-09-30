@@ -19,8 +19,6 @@ frame-support = { default-features = false, version = "4.0.0-dev", git = "https:
 frame-system = { default-features = false, version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.28" }
 frame-benchmarking = { default-features = false, version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.28", optional = true }
 sp-runtime = { default-features = false, version = "6.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.28" }
-# NOTE: Should rather have a separate crate with Swap trait
-pallet-dex = { version = "0.1.0", default-features = false, path = "../dex" }
 
 [dev-dependencies]
 sp-core = { default-features = false, version = "6.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.28" }
@@ -28,6 +26,7 @@ sp-io = { default-features = false, version = "6.0.0", git = "https://github.com
 sp-runtime = { default-features = false, version = "6.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.28" }
 pallet-assets = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.28" }
 pallet-balances = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.28" }
+pallet-dex = { git = "https://github.com/evilrobot-01/substrate-pallets", branch = "dex" }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.28" }
 pallet-uniques = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.28" }
 
@@ -38,8 +37,7 @@ std = [
 	"scale-info/std",
 	"frame-support/std",
 	"frame-system/std",
-	"frame-benchmarking/std",
-	"pallet-dex/std",
+	"frame-benchmarking/std"
 ]
 
 runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks"]
