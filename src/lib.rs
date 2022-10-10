@@ -49,7 +49,7 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config {
         /// Because this pallet emits events, it depends on the runtime's definition of an event.
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         // Identifier type for a fungible asset
         type AssetId: AtLeast32BitUnsigned
@@ -174,7 +174,7 @@ pub mod pallet {
         /// * `collection` - The collection identifier.
         /// * `mint_price` - The mint price of an item.
         /// * `asset` - The asset type of the listing.
-        #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+        #[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
         pub fn list_collection(
             origin: OriginFor<T>,
             collection: CollectionIdOf<T>,
@@ -207,7 +207,7 @@ pub mod pallet {
         /// * `item` - The collection item identifier.
         /// * `price` - The list price of the item.
         /// * `asset` - The asset type of the listing.
-        #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+        #[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
         pub fn list_item(
             origin: OriginFor<T>,
             collection: CollectionIdOf<T>,
@@ -239,7 +239,7 @@ pub mod pallet {
         /// * `asset` - The asset type to be used to mint.
         /// **Note:** the collection item should ideally be randomly generated, rather than being passed in as an
         /// argument. This _appears_ to be related to the uniques pallet API.
-        #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+        #[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
         pub fn mint(
             origin: OriginFor<T>,
             collection: CollectionIdOf<T>,
@@ -303,7 +303,7 @@ pub mod pallet {
         /// # Arguments
         /// * `origin` - The origin of the call.
         /// * `collection` - The collection identifier.
-        #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+        #[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
         pub fn delist_collection(
             origin: OriginFor<T>,
             collection: CollectionIdOf<T>,
@@ -333,7 +333,7 @@ pub mod pallet {
         /// * `origin` - The origin of the call.
         /// * `collection` - The collection identifier.
         /// * `item` - The collection item identifier.
-        #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+        #[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
         pub fn delist_item(
             origin: OriginFor<T>,
             collection: CollectionIdOf<T>,
@@ -365,7 +365,7 @@ pub mod pallet {
         /// * `collection` - The collection identifier.
         /// * `item` - The collection item identifier.
         /// * `asset` - The asset type to be used to conclude the purchase.
-        #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+        #[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
         pub fn purchase(
             origin: OriginFor<T>,
             collection: CollectionIdOf<T>,
