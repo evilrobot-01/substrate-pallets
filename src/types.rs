@@ -362,7 +362,7 @@ mod tests {
     fn new_liquidity_detects_existing_id() {
         new_test_ext().execute_with(|| {
             assert_ok!(Assets::force_create(
-                Origin::root(),
+                RuntimeOrigin::root(),
                 u32::MAX,
                 ADMIN,
                 true,
@@ -398,27 +398,27 @@ mod tests {
     fn adds_liquidity() {
         new_test_ext().execute_with(|| {
             assert_ok!(Assets::force_create(
-                Origin::root(),
+                RuntimeOrigin::root(),
                 ASSET_0,
                 ADMIN,
                 true,
                 MIN_BALANCE
             ));
             assert_ok!(Assets::force_create(
-                Origin::root(),
+                RuntimeOrigin::root(),
                 ASSET_1,
                 ADMIN,
                 true,
                 MIN_BALANCE
             ));
             assert_ok!(Assets::mint(
-                Origin::signed(ADMIN),
+                RuntimeOrigin::signed(ADMIN),
                 ASSET_0,
                 LP,
                 1000 * UNITS
             ));
             assert_ok!(Assets::mint(
-                Origin::signed(ADMIN),
+                RuntimeOrigin::signed(ADMIN),
                 ASSET_1,
                 LP,
                 1000 * UNITS
@@ -451,27 +451,27 @@ mod tests {
     fn adds_additional_liquidity() {
         new_test_ext().execute_with(|| {
             assert_ok!(Assets::force_create(
-                Origin::root(),
+                RuntimeOrigin::root(),
                 ASSET_0,
                 ADMIN,
                 true,
                 MIN_BALANCE
             ));
             assert_ok!(Assets::force_create(
-                Origin::root(),
+                RuntimeOrigin::root(),
                 ASSET_1,
                 ADMIN,
                 true,
                 MIN_BALANCE
             ));
             assert_ok!(Assets::mint(
-                Origin::signed(ADMIN),
+                RuntimeOrigin::signed(ADMIN),
                 ASSET_0,
                 LP,
                 1000 * UNITS
             ));
             assert_ok!(Assets::mint(
-                Origin::signed(ADMIN),
+                RuntimeOrigin::signed(ADMIN),
                 ASSET_1,
                 LP,
                 1000 * UNITS
@@ -506,22 +506,26 @@ mod tests {
     fn adds_liquidity_with_native_currency() {
         new_test_ext().execute_with(|| {
             assert_ok!(Assets::force_create(
-                Origin::root(),
+                RuntimeOrigin::root(),
                 NATIVE_TOKEN,
                 ADMIN,
                 true,
                 MIN_BALANCE
             ));
             assert_ok!(Assets::force_create(
-                Origin::root(),
+                RuntimeOrigin::root(),
                 ASSET_1,
                 ADMIN,
                 true,
                 MIN_BALANCE
             ));
-            assert_ok!(Balances::transfer(Origin::signed(ADMIN), LP, 1000 * UNITS));
+            assert_ok!(Balances::transfer(
+                RuntimeOrigin::signed(ADMIN),
+                LP,
+                1000 * UNITS
+            ));
             assert_ok!(Assets::mint(
-                Origin::signed(ADMIN),
+                RuntimeOrigin::signed(ADMIN),
                 ASSET_1,
                 LP,
                 1000 * UNITS
@@ -579,27 +583,27 @@ mod tests {
     fn removes_all_liquidity() {
         new_test_ext().execute_with(|| {
             assert_ok!(Assets::force_create(
-                Origin::root(),
+                RuntimeOrigin::root(),
                 ASSET_0,
                 ADMIN,
                 true,
                 MIN_BALANCE
             ));
             assert_ok!(Assets::force_create(
-                Origin::root(),
+                RuntimeOrigin::root(),
                 ASSET_1,
                 ADMIN,
                 true,
                 MIN_BALANCE
             ));
             assert_ok!(Assets::mint(
-                Origin::signed(ADMIN),
+                RuntimeOrigin::signed(ADMIN),
                 ASSET_0,
                 LP,
                 1000 * UNITS
             ));
             assert_ok!(Assets::mint(
-                Origin::signed(ADMIN),
+                RuntimeOrigin::signed(ADMIN),
                 ASSET_1,
                 LP,
                 1000 * UNITS
@@ -628,27 +632,27 @@ mod tests {
     fn remove_ensure_sufficient_balance() {
         new_test_ext().execute_with(|| {
             assert_ok!(Assets::force_create(
-                Origin::root(),
+                RuntimeOrigin::root(),
                 ASSET_0,
                 ADMIN,
                 true,
                 MIN_BALANCE
             ));
             assert_ok!(Assets::force_create(
-                Origin::root(),
+                RuntimeOrigin::root(),
                 ASSET_1,
                 ADMIN,
                 true,
                 MIN_BALANCE
             ));
             assert_ok!(Assets::mint(
-                Origin::signed(ADMIN),
+                RuntimeOrigin::signed(ADMIN),
                 ASSET_0,
                 LP,
                 1000 * UNITS
             ));
             assert_ok!(Assets::mint(
-                Origin::signed(ADMIN),
+                RuntimeOrigin::signed(ADMIN),
                 ASSET_1,
                 LP,
                 1000 * UNITS
@@ -670,15 +674,19 @@ mod tests {
     fn removes_all_liquidity_with_native_currency() {
         new_test_ext().execute_with(|| {
             assert_ok!(Assets::force_create(
-                Origin::root(),
+                RuntimeOrigin::root(),
                 ASSET_1,
                 ADMIN,
                 true,
                 MIN_BALANCE
             ));
-            assert_ok!(Balances::transfer(Origin::signed(ADMIN), LP, 1000 * UNITS));
+            assert_ok!(Balances::transfer(
+                RuntimeOrigin::signed(ADMIN),
+                LP,
+                1000 * UNITS
+            ));
             assert_ok!(Assets::mint(
-                Origin::signed(ADMIN),
+                RuntimeOrigin::signed(ADMIN),
                 ASSET_1,
                 LP,
                 1000 * UNITS
@@ -707,21 +715,25 @@ mod tests {
     fn swaps_with_native_currency() {
         new_test_ext().execute_with(|| {
             assert_ok!(Assets::force_create(
-                Origin::root(),
+                RuntimeOrigin::root(),
                 ASSET_1,
                 ADMIN,
                 true,
                 MIN_BALANCE
             ));
-            assert_ok!(Balances::transfer(Origin::signed(ADMIN), LP, 1000 * UNITS));
+            assert_ok!(Balances::transfer(
+                RuntimeOrigin::signed(ADMIN),
+                LP,
+                1000 * UNITS
+            ));
             assert_ok!(Assets::mint(
-                Origin::signed(ADMIN),
+                RuntimeOrigin::signed(ADMIN),
                 ASSET_1,
                 LP,
                 1000 * UNITS
             ));
             assert_ok!(Balances::transfer(
-                Origin::signed(ADMIN),
+                RuntimeOrigin::signed(ADMIN),
                 BUYER,
                 100 * UNITS
             ));
@@ -751,33 +763,33 @@ mod tests {
     fn swaps_asset_0() {
         new_test_ext().execute_with(|| {
             assert_ok!(Assets::force_create(
-                Origin::root(),
+                RuntimeOrigin::root(),
                 ASSET_0,
                 ADMIN,
                 true,
                 MIN_BALANCE
             ));
             assert_ok!(Assets::force_create(
-                Origin::root(),
+                RuntimeOrigin::root(),
                 ASSET_1,
                 ADMIN,
                 true,
                 MIN_BALANCE
             ));
             assert_ok!(Assets::mint(
-                Origin::signed(ADMIN),
+                RuntimeOrigin::signed(ADMIN),
                 ASSET_0,
                 LP,
                 1000 * UNITS
             ));
             assert_ok!(Assets::mint(
-                Origin::signed(ADMIN),
+                RuntimeOrigin::signed(ADMIN),
                 ASSET_1,
                 LP,
                 1000 * UNITS
             ));
             assert_ok!(Assets::mint(
-                Origin::signed(ADMIN),
+                RuntimeOrigin::signed(ADMIN),
                 ASSET_0,
                 BUYER,
                 100 * UNITS
@@ -808,33 +820,33 @@ mod tests {
     fn swaps_asset_1() {
         new_test_ext().execute_with(|| {
             assert_ok!(Assets::force_create(
-                Origin::root(),
+                RuntimeOrigin::root(),
                 ASSET_0,
                 ADMIN,
                 true,
                 MIN_BALANCE
             ));
             assert_ok!(Assets::force_create(
-                Origin::root(),
+                RuntimeOrigin::root(),
                 ASSET_1,
                 ADMIN,
                 true,
                 MIN_BALANCE
             ));
             assert_ok!(Assets::mint(
-                Origin::signed(ADMIN),
+                RuntimeOrigin::signed(ADMIN),
                 ASSET_0,
                 LP,
                 1000 * UNITS
             ));
             assert_ok!(Assets::mint(
-                Origin::signed(ADMIN),
+                RuntimeOrigin::signed(ADMIN),
                 ASSET_1,
                 LP,
                 1000 * UNITS
             ));
             assert_ok!(Assets::mint(
-                Origin::signed(ADMIN),
+                RuntimeOrigin::signed(ADMIN),
                 ASSET_1,
                 BUYER,
                 500 * UNITS
@@ -861,33 +873,33 @@ mod tests {
     fn swap_insufficient_balance_asset_1() {
         new_test_ext().execute_with(|| {
             assert_ok!(Assets::force_create(
-                Origin::root(),
+                RuntimeOrigin::root(),
                 ASSET_0,
                 ADMIN,
                 true,
                 MIN_BALANCE
             ));
             assert_ok!(Assets::force_create(
-                Origin::root(),
+                RuntimeOrigin::root(),
                 ASSET_1,
                 ADMIN,
                 true,
                 MIN_BALANCE
             ));
             assert_ok!(Assets::mint(
-                Origin::signed(ADMIN),
+                RuntimeOrigin::signed(ADMIN),
                 ASSET_0,
                 LP,
                 1000 * UNITS
             ));
             assert_ok!(Assets::mint(
-                Origin::signed(ADMIN),
+                RuntimeOrigin::signed(ADMIN),
                 ASSET_1,
                 LP,
                 1000 * UNITS
             ));
             assert_ok!(Assets::mint(
-                Origin::signed(ADMIN),
+                RuntimeOrigin::signed(ADMIN),
                 ASSET_1,
                 BUYER,
                 500 * UNITS
