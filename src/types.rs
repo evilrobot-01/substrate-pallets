@@ -53,12 +53,17 @@ impl<T: Config> LiquidityPool<T> {
         // Set asset metadata based on existing assets
         let mut asset_0 = T::Assets::symbol(pair.0);
         let asset_1 = T::Assets::symbol(pair.1);
+        const SEPARATOR: [u8; 3] = [32, 47, 32]; // " / "
+        const NAME_SUFFIX: [u8; 9] = [32, 76, 80, 32, 84, 111, 107, 101, 110]; // " LP Token"
+        asset_0.extend(SEPARATOR);
         asset_0.extend(asset_1);
+        let symbol = asset_0.clone();
+        asset_0.extend(NAME_SUFFIX);
         T::Assets::set(
             id,
             &dex,
-            asset_0.clone(),
             asset_0,
+            symbol,
             T::LiquidityPoolTokenDecimals::get(),
         )?;
 
