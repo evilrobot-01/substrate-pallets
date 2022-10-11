@@ -13,12 +13,13 @@ use std::sync::Arc;
 
 pub use pallet_dex_runtime_api::DexApi as DexRuntimeApi;
 
-// DEX RPC methods
+/// DEX RPC methods
 #[rpc(client, server)]
 pub trait DexApi<Balance, AssetId>
 where
     Balance: Copy + TryFrom<NumberOrHex> + Into<NumberOrHex>,
 {
+    /// Calculates the output amount of asset `other`, given an input `amount` and `asset` type.
     #[method(name = "dex_price")]
     fn price(&self, amount: Balance, asset: AssetId, other: AssetId) -> RpcResult<Balance>;
 }
