@@ -21,7 +21,7 @@ mod functions;
 mod mock;
 #[cfg(test)]
 mod tests;
-mod traits;
+pub mod traits;
 mod types;
 
 type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
