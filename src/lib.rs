@@ -162,6 +162,8 @@ pub mod pallet {
         InsufficientBalance,
         /// The asset does not exist.
         InvalidAsset,
+        /// The collection does not exist.
+        InvalidCollection,
         /// The item does not exist.
         InvalidItem,
         // The collection item has already been minted.
@@ -188,13 +190,9 @@ pub mod pallet {
             mint_price: PriceOf<T>,
             asset: AssetIdOf<T>,
         ) -> DispatchResult {
-            // Check signed
-            let who = ensure_signed(origin)?;
             // Check inputs
-            ensure!(
-                T::Uniques::collection_owner(&collection).map_or(false, |account| account == who),
-                Error::<T>::NoOwnership
-            ); // Ensure owner
+            let sender = ensure_signed(origin)?;
+            Self::ensure_collection_owner(sender, &collection)?; // Ensure collection exists and sender is owner
             ensure!(T::exists(asset), Error::<T>::InvalidAsset); // Ensure assets exists
 
             // Create a listing
@@ -222,13 +220,13 @@ pub mod pallet {
             price: PriceOf<T>,
             asset: AssetIdOf<T>,
         ) -> DispatchResult {
-            // Check signed
-            let who = ensure_signed(origin)?;
             // Check inputs
+            let sender = ensure_signed(origin)?;
             ensure!(
-                T::Uniques::owner(&collection, &item).map_or(false, |account| account == who),
-                Error::<T>::NoOwnership
-            ); // Ensure owner
+                T::Uniques::collection_owner(&collection).is_some(),
+                Error::<T>::InvalidCollection
+            ); // Ensure collection exists
+            Self::ensure_item_owner(sender, &collection, &item)?; // Ensure item exists and sender is owner
             ensure!(T::exists(asset), Error::<T>::InvalidAsset); // Ensure assets exists
 
             // Create a listing
@@ -315,24 +313,17 @@ pub mod pallet {
             origin: OriginFor<T>,
             collection: CollectionIdOf<T>,
         ) -> DispatchResult {
-            // Check signed
-            let who = ensure_signed(origin)?;
+            // Check inputs
+            let sender = ensure_signed(origin)?; // Check signed
+            Self::ensure_collection_owner(sender, &collection)?; // Ensure collection exists and sender is owner
 
-            match T::Uniques::collection_owner(&collection) {
-                None => Err(DispatchError::from(Error::<T>::InvalidItem)),
-                Some(account) => {
-                    // Ensure owner
-                    ensure!(account == who, Error::<T>::NoOwnership);
-
-                    // Check for listing and delist if found
-                    if let Some(_) = <CollectionListings<T>>::get(collection) {
-                        <CollectionListings<T>>::remove(collection);
-                        Self::deposit_event(Event::CollectionDelisted(collection));
-                    }
-
-                    Ok(())
-                }
+            // Check for listing and delist if found
+            if let Some(_) = <CollectionListings<T>>::get(collection) {
+                <CollectionListings<T>>::remove(collection);
+                Self::deposit_event(Event::CollectionDelisted(collection));
             }
+
+            Ok(())
         }
 
         /// Delists a collection item from sale.
@@ -346,24 +337,21 @@ pub mod pallet {
             collection: CollectionIdOf<T>,
             item: ItemIdOf<T>,
         ) -> DispatchResult {
-            // Check signed
-            let who = ensure_signed(origin)?;
+            // Check inputs
+            let sender = ensure_signed(origin)?;
+            ensure!(
+                T::Uniques::collection_owner(&collection).is_some(),
+                Error::<T>::InvalidCollection
+            ); // Ensure collection exists
+            Self::ensure_item_owner(sender, &collection, &item)?; // Ensure item exists and sender is owner
 
-            match T::Uniques::owner(&collection, &item) {
-                None => Err(DispatchError::from(Error::<T>::InvalidItem)),
-                Some(account) => {
-                    // Ensure owner
-                    ensure!(account == who, Error::<T>::NoOwnership);
-
-                    // Check for listing and delist if found
-                    if let Some(_) = <ItemListings<T>>::get((collection, item)) {
-                        <ItemListings<T>>::remove((collection, item));
-                        Self::deposit_event(Event::ItemDelisted(collection, item));
-                    }
-
-                    Ok(())
-                }
+            // Check for listing and delist if found
+            if let Some(_) = <ItemListings<T>>::get((collection, item)) {
+                <ItemListings<T>>::remove((collection, item));
+                Self::deposit_event(Event::ItemDelisted(collection, item));
             }
+
+            Ok(())
         }
 
         /// Purchases a collection item, using the specified asset type.
@@ -424,6 +412,32 @@ pub mod pallet {
             <ItemListings<T>>::remove((collection, item));
             Self::deposit_event(Event::ItemDelisted(collection, item));
             Ok(())
+        }
+    }
+
+    impl<T: pallet::Config> Pallet<T> {
+        fn ensure_collection_owner(
+            sender: AccountIdOf<T>,
+            collection: &CollectionIdOf<T>,
+        ) -> DispatchResult {
+            match T::Uniques::collection_owner(collection) {
+                None => Err(DispatchError::from(Error::<T>::InvalidCollection)),
+                Some(owner) if sender != owner => Err(DispatchError::from(Error::<T>::NoOwnership)),
+                _ => Ok(()),
+            }
+        }
+
+        fn ensure_item_owner(
+            sender: AccountIdOf<T>,
+            collection: &CollectionIdOf<T>,
+            item: &ItemIdOf<T>,
+        ) -> DispatchResult {
+            match T::Uniques::owner(collection, item) {
+                // Ensure item exists and sender is owner
+                None => Err(DispatchError::from(Error::<T>::InvalidItem)),
+                Some(owner) if sender != owner => Err(DispatchError::from(Error::<T>::NoOwnership)),
+                _ => Ok(()),
+            }
         }
     }
 }

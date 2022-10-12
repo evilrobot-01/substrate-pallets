@@ -1,0 +1,54 @@
+name: Tests
+
+on:
+  push:
+  workflow_dispatch: # Allows you to run this workflow manually from the Actions tab
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    env:
+      SKIP_WASM_BUILD: '1' # Skip for all steps, so no wasm32-unknown-unknown target required
+
+    steps:
+      # Checkout repository
+      - uses: actions/checkout@v3
+
+      # Install and use nightly
+      - name: Install nightly toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2022-09-01 # Specific version required otherwise new cache each day due to nightly changes
+          override: true
+          components: rustfmt, clippy
+
+      # Setup cache
+      - name: Setup cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "tests"
+
+      # Install cargo-nextest, 60% faster than cargo test and support for junit output format
+      - name: Install cargo-nextest
+        uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-nextest
+          version: latest
+
+      # Create ci profile with JUnit output enabled
+      - name: Configure CI
+        run:  mkdir .config && echo -e "[profile.ci.junit]\npath = \"junit.xml\"" > .config/nextest.toml
+
+      # Run all tests in solution using CI profile created above
+      - name: Run tests
+        run:  cargo nextest run --features=default,runtime-benchmarks --release --profile ci
+
+      # Report test results
+      - name: Report test results
+        uses: dorny/test-reporter@v1
+        if: success() || failure()    # run this step even if previous step failed
+        with:
+          name: tests
+          path: target/nextest/ci/junit.xml
+          reporter: jest-junit
