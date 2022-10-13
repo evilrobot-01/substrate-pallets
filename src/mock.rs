@@ -1,6 +1,6 @@
 use crate as pallet_marketplace;
 use frame_support::dispatch::DispatchResult;
-use frame_support::traits::{AsEnsureOriginWithArg, ConstU16, ConstU64};
+use frame_support::traits::{AsEnsureOriginWithArg, ConstU16, ConstU64, GenesisBuild};
 use frame_support::{parameter_types, PalletId};
 use frame_system as system;
 use frame_system::{EnsureRoot, EnsureSigned};
@@ -76,7 +76,7 @@ impl pallet_assets::Config for Test {
     type MetadataDepositBase = ();
     type MetadataDepositPerByte = ();
     type ApprovalDeposit = ();
-    type StringLimit = ConstU32<15>;
+    type StringLimit = ConstU32<25>;
     type Freezer = ();
     type Extra = ();
     type WeightInfo = ();
@@ -148,7 +148,7 @@ impl pallet_uniques::Config for Test {
     type Currency = Balances;
     type ForceOrigin = EnsureRoot<AccountId>;
     type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
-    type Locker = ();
+    type Locker = Marketplace;
     type CollectionDeposit = ();
     type ItemDeposit = ();
     type MetadataDepositBase = ();
@@ -160,12 +160,60 @@ impl pallet_uniques::Config for Test {
     type WeightInfo = ();
 }
 
+pub(crate) const NATIVE_TOKEN: u32 = 0;
+pub(crate) const ASSET_1: u32 = 1;
+pub(crate) const ASSET_2: u32 = 2;
+pub(crate) const BUYER: u64 = 3;
+pub(crate) const OWNER: u64 = 2;
+
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-    system::GenesisConfig::default()
+    let mut storage = system::GenesisConfig::default()
         .build_storage::<Test>()
         .unwrap()
-        .into()
+        .into();
+
+    const ADMIN: u64 = 0;
+    const MIN_BALANCE: u128 = 1;
+    const LIQUIDITY_PROVIDER: u64 = 123;
+
+    // Set balances of native token
+    let config: pallet_balances::GenesisConfig<Test> = pallet_balances::GenesisConfig {
+        balances: vec![(OWNER, 100), (LIQUIDITY_PROVIDER, 100), (BUYER, 10)],
+    };
+    config.assimilate_storage(&mut storage).unwrap();
+
+    // Configure assets
+    let config: pallet_assets::GenesisConfig<Test> = pallet_assets::GenesisConfig {
+        assets: vec![
+            // id, owner, is_sufficient, min_balance
+            (NATIVE_TOKEN, ADMIN, true, MIN_BALANCE), // Proxy for native token
+            (ASSET_1, ADMIN, true, MIN_BALANCE),
+            (ASSET_2, ADMIN, true, MIN_BALANCE),
+        ],
+        metadata: vec![
+            // id, name, symbol, decimals
+            (NATIVE_TOKEN, "Native (Proxy)".into(), "UNIT".into(), 10),
+            (ASSET_1, "Token 1".into(), "TOK1".into(), 10),
+            (ASSET_2, "Token 2".into(), "TOK2".into(), 10),
+        ],
+        accounts: vec![
+            // id, account_id, balance
+            (ASSET_1, LIQUIDITY_PROVIDER, 1000),
+            (ASSET_1, BUYER, 150),
+        ],
+    };
+    config.assimilate_storage(&mut storage).unwrap();
+
+    // Configure DEX liquidity pools
+    let config: pallet_dex::GenesisConfig<Test> = pallet_dex::GenesisConfig {
+        liquidity_pools: vec![((100, NATIVE_TOKEN), (1000, ASSET_1), LIQUIDITY_PROVIDER)],
+    };
+    config.assimilate_storage(&mut storage).unwrap();
+
+    let mut ext: sp_io::TestExternalities = storage.into();
+    ext.execute_with(|| System::set_block_number(1));
+    ext
 }
 
 mod proxies {

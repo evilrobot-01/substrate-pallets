@@ -45,7 +45,7 @@ pub mod pallet {
     use crate::traits::{Price, Swap};
     use frame_support::{
         traits::tokens::fungibles::Transfer as TransferFungible,
-        traits::tokens::nonfungibles::Transfer,
+        traits::tokens::nonfungibles::Transfer, traits::Locker,
     };
 
     /// The configuration for the pallet.
@@ -192,7 +192,7 @@ pub mod pallet {
         ) -> DispatchResult {
             // Check inputs
             let sender = ensure_signed(origin)?;
-            Self::ensure_collection_owner(sender, &collection)?; // Ensure collection exists and sender is owner
+            Self::ensure_collection_owner(&sender, &collection)?; // Ensure collection exists and sender is owner
             ensure!(T::exists(asset), Error::<T>::InvalidAsset); // Ensure assets exists
 
             // Create a listing
@@ -226,10 +226,10 @@ pub mod pallet {
                 T::Uniques::collection_owner(&collection).is_some(),
                 Error::<T>::InvalidCollection
             ); // Ensure collection exists
-            Self::ensure_item_owner(sender, &collection, &item)?; // Ensure item exists and sender is owner
+            Self::ensure_item_owner(&sender, &collection, &item)?; // Ensure item exists and sender is owner
             ensure!(T::exists(asset), Error::<T>::InvalidAsset); // Ensure assets exists
 
-            // Create a listing
+            // Create a listing, replacing any existing listing
             let listing = ItemListing { price, asset };
             <ItemListings<T>>::set((collection, item), Some(listing));
             Self::deposit_event(Event::ItemListed(collection, item, price, asset));
@@ -264,7 +264,7 @@ pub mod pallet {
                 None => return Err(DispatchError::from(Error::<T>::NoListing)),
                 Some(listing) => {
                     match T::Uniques::collection_owner(&collection) {
-                        None => return Err(DispatchError::from(Error::<T>::InvalidItem)),
+                        None => return Err(DispatchError::from(Error::<T>::InvalidCollection)),
                         Some(owner) => {
                             // Check if asset matches listing
                             if listing.asset == asset {
@@ -315,7 +315,7 @@ pub mod pallet {
         ) -> DispatchResult {
             // Check inputs
             let sender = ensure_signed(origin)?; // Check signed
-            Self::ensure_collection_owner(sender, &collection)?; // Ensure collection exists and sender is owner
+            Self::ensure_collection_owner(&sender, &collection)?; // Ensure collection exists and sender is owner
 
             // Check for listing and delist if found
             if let Some(_) = <CollectionListings<T>>::get(collection) {
@@ -343,7 +343,7 @@ pub mod pallet {
                 T::Uniques::collection_owner(&collection).is_some(),
                 Error::<T>::InvalidCollection
             ); // Ensure collection exists
-            Self::ensure_item_owner(sender, &collection, &item)?; // Ensure item exists and sender is owner
+            Self::ensure_item_owner(&sender, &collection, &item)?; // Ensure item exists and sender is owner
 
             // Check for listing and delist if found
             if let Some(_) = <ItemListings<T>>::get((collection, item)) {
@@ -367,15 +367,21 @@ pub mod pallet {
             item: ItemIdOf<T>,
             asset: AssetIdOf<T>,
         ) -> DispatchResult {
+            // Check inputs
             let buyer = ensure_signed(origin)?;
+            ensure!(
+                T::Uniques::collection_owner(&collection).is_some(),
+                Error::<T>::InvalidCollection
+            ); // Ensure collection exists
 
-            // Lookup item listing
-            match <ItemListings<T>>::get((collection, item)) {
-                None => return Err(DispatchError::from(Error::<T>::NoListing)),
-                Some(listing) => {
-                    match T::Uniques::owner(&collection, &item) {
-                        None => return Err(DispatchError::from(Error::<T>::InvalidItem)),
-                        Some(owner) => {
+            // Ensure collection item exists
+            match T::Uniques::owner(&collection, &item) {
+                None => return Err(DispatchError::from(Error::<T>::InvalidItem)),
+                Some(owner) => {
+                    match <ItemListings<T>>::get((collection, item)) {
+                        // Ensure listing exists
+                        None => return Err(DispatchError::from(Error::<T>::NoListing)),
+                        Some(listing) => {
                             // Check if asset matches listing
                             if listing.asset == asset {
                                 // Ensure buyer has sufficient funds
@@ -383,9 +389,6 @@ pub mod pallet {
                                     Self::balance(asset, &buyer) >= listing.price,
                                     <Error<T>>::InsufficientBalance
                                 );
-                                // Exchange funds for unique
-                                Self::transfer(asset, &buyer, &owner, listing.price)?;
-                                T::Uniques::transfer(&collection, &item, &buyer)?;
                             } else {
                                 let swap_price =
                                     T::DEX::price(listing.price, listing.asset, asset)?;
@@ -398,46 +401,26 @@ pub mod pallet {
                                 // Swap the funds via the dex
                                 // todo: DEX needs functionality to be able to specify minimum quantity returned
                                 T::DEX::swap(swap_price, asset, listing.asset, &buyer)?;
-
-                                // Exchange funds for unique
-                                Self::transfer(listing.asset, &buyer, &owner, listing.price)?;
-                                T::Uniques::transfer(&collection, &item, &buyer)?;
                             }
+
+                            // Exchange funds for unique
+                            Self::transfer(listing.asset, &buyer, &owner, listing.price)?;
+                            <ItemListings<T>>::remove((collection, item));
+                            T::Uniques::transfer(&collection, &item, &buyer)?;
+                            Self::deposit_event(Event::ItemDelisted(collection, item));
                         }
                     }
                 }
             }
 
-            // Finally remove listing and emit event
-            <ItemListings<T>>::remove((collection, item));
-            Self::deposit_event(Event::ItemDelisted(collection, item));
             Ok(())
         }
     }
 
-    impl<T: pallet::Config> Pallet<T> {
-        fn ensure_collection_owner(
-            sender: AccountIdOf<T>,
-            collection: &CollectionIdOf<T>,
-        ) -> DispatchResult {
-            match T::Uniques::collection_owner(collection) {
-                None => Err(DispatchError::from(Error::<T>::InvalidCollection)),
-                Some(owner) if sender != owner => Err(DispatchError::from(Error::<T>::NoOwnership)),
-                _ => Ok(()),
-            }
-        }
-
-        fn ensure_item_owner(
-            sender: AccountIdOf<T>,
-            collection: &CollectionIdOf<T>,
-            item: &ItemIdOf<T>,
-        ) -> DispatchResult {
-            match T::Uniques::owner(collection, item) {
-                // Ensure item exists and sender is owner
-                None => Err(DispatchError::from(Error::<T>::InvalidItem)),
-                Some(owner) if sender != owner => Err(DispatchError::from(Error::<T>::NoOwnership)),
-                _ => Ok(()),
-            }
+    impl<T: Config> Locker<T::CollectionId, T::ItemId> for Pallet<T> {
+        /// Check if the asset should be locked and prevent interactions with the asset from executing.
+        fn is_locked(collection: T::CollectionId, item: T::ItemId) -> bool {
+            <ItemListings<T>>::contains_key((collection, item))
         }
     }
 }
