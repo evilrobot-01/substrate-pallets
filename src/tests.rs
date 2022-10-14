@@ -639,6 +639,197 @@ fn purchase_via_swap() {
     });
 }
 
+#[test]
+fn mint_ensures_signed() {
+    new_test_ext().execute_with(|| {
+        assert_noop!(
+            Marketplace::mint(RuntimeOrigin::none(), COLLECTION, ITEM, NATIVE_TOKEN),
+            DispatchError::BadOrigin
+        );
+    });
+}
+
+#[test]
+fn mint_ensures_collection_exists() {
+    new_test_ext().execute_with(|| {
+        assert_noop!(
+            Marketplace::mint(RuntimeOrigin::signed(BUYER), COLLECTION, ITEM, NATIVE_TOKEN),
+            Error::<Test>::InvalidCollection
+        );
+    });
+}
+
+#[test]
+fn mint_ensures_item_not_already_minted() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Uniques::create(
+            RuntimeOrigin::signed(OWNER),
+            COLLECTION,
+            OWNER
+        ));
+        assert_ok!(Uniques::mint(
+            RuntimeOrigin::signed(OWNER),
+            COLLECTION,
+            ITEM,
+            OWNER
+        ));
+
+        assert_noop!(
+            Marketplace::mint(RuntimeOrigin::signed(BUYER), COLLECTION, ITEM, NATIVE_TOKEN),
+            Error::<Test>::ItemAlreadyMinted
+        );
+    });
+}
+
+#[test]
+fn mint_ensures_collection_listed() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Uniques::create(
+            RuntimeOrigin::signed(OWNER),
+            COLLECTION,
+            OWNER
+        ));
+
+        assert_noop!(
+            Marketplace::mint(RuntimeOrigin::signed(BUYER), COLLECTION, ITEM, NATIVE_TOKEN),
+            Error::<Test>::NoListing
+        );
+    });
+}
+
+#[test]
+fn mint_ensures_sufficient_balance() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Uniques::create(
+            RuntimeOrigin::signed(OWNER),
+            COLLECTION,
+            OWNER
+        ));
+        assert_ok!(Marketplace::list_collection(
+            RuntimeOrigin::signed(OWNER),
+            COLLECTION,
+            balance(NATIVE_TOKEN, &BUYER) + 1, // Ensure buyer cannot afford to mint
+            NATIVE_TOKEN
+        ));
+
+        assert_noop!(
+            Marketplace::mint(RuntimeOrigin::signed(BUYER), COLLECTION, ITEM, NATIVE_TOKEN),
+            Error::<Test>::InsufficientBalance
+        );
+    });
+}
+
+#[test]
+fn mint_transfers_funds() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Uniques::create(
+            RuntimeOrigin::signed(OWNER),
+            COLLECTION,
+            OWNER
+        ));
+        assert_ok!(Marketplace::list_collection(
+            RuntimeOrigin::signed(OWNER),
+            COLLECTION,
+            MINT_PRICE,
+            NATIVE_TOKEN
+        ));
+
+        let owner_balance = balance(NATIVE_TOKEN, &OWNER);
+        let buyer_balance = balance(NATIVE_TOKEN, &BUYER);
+        assert_ok!(Marketplace::mint(
+            RuntimeOrigin::signed(BUYER),
+            COLLECTION,
+            ITEM,
+            NATIVE_TOKEN
+        ));
+
+        // Ensure balances changed
+        assert_eq!(balance(NATIVE_TOKEN, &OWNER), owner_balance + MINT_PRICE);
+        assert_eq!(balance(NATIVE_TOKEN, &BUYER), buyer_balance - MINT_PRICE);
+    });
+}
+
+#[test]
+fn mint_transfers_item() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Uniques::create(
+            RuntimeOrigin::signed(OWNER),
+            COLLECTION,
+            OWNER
+        ));
+        assert_ok!(Marketplace::list_collection(
+            RuntimeOrigin::signed(OWNER),
+            COLLECTION,
+            MINT_PRICE,
+            NATIVE_TOKEN
+        ));
+
+        assert_ok!(Marketplace::mint(
+            RuntimeOrigin::signed(BUYER),
+            COLLECTION,
+            ITEM,
+            NATIVE_TOKEN
+        ));
+
+        // Ensure owner of unique has changed
+        assert_eq!(Uniques::owner(COLLECTION, ITEM).unwrap(), BUYER);
+    });
+}
+
+#[test]
+fn mint_via_swap_ensures_sufficient_balance() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Uniques::create(
+            RuntimeOrigin::signed(OWNER),
+            COLLECTION,
+            OWNER
+        ));
+        assert_ok!(Marketplace::list_collection(
+            RuntimeOrigin::signed(OWNER),
+            COLLECTION,
+            20,
+            NATIVE_TOKEN
+        ));
+
+        assert_noop!(
+            Marketplace::mint(RuntimeOrigin::signed(BUYER), COLLECTION, ITEM, ASSET_1),
+            Error::<Test>::InsufficientBalance
+        );
+    });
+}
+
+#[test]
+fn mint_via_swap() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Uniques::create(
+            RuntimeOrigin::signed(OWNER),
+            COLLECTION,
+            OWNER
+        ));
+        assert_ok!(Marketplace::list_collection(
+            RuntimeOrigin::signed(OWNER),
+            COLLECTION,
+            MINT_PRICE,
+            NATIVE_TOKEN
+        ));
+
+        let owner_balance = balance(NATIVE_TOKEN, &OWNER);
+        let buyer_balance = balance(ASSET_1, &BUYER);
+        let swap_price = DEX::price(MINT_PRICE, NATIVE_TOKEN, ASSET_1).unwrap();
+
+        assert_ok!(Marketplace::mint(
+            RuntimeOrigin::signed(BUYER),
+            COLLECTION,
+            ITEM,
+            ASSET_1
+        ),);
+
+        // Ensure balances changed
+        assert_eq!(balance(NATIVE_TOKEN, &OWNER), owner_balance + MINT_PRICE);
+        assert_eq!(balance(ASSET_1, &BUYER), buyer_balance - swap_price);
+    });
+}
+
 fn balance(id: AssetIdOf<Test>, who: &AccountIdOf<Test>) -> BalanceOf<Test> {
     crate::Pallet::<Test>::balance(id, who)
 }

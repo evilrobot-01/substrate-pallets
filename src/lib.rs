@@ -251,56 +251,52 @@ pub mod pallet {
             item: ItemIdOf<T>,
             asset: AssetIdOf<T>,
         ) -> DispatchResult {
-            let buyer = ensure_signed(origin)?;
-
             // Check inputs
-            ensure!(
-                T::Uniques::owner(&collection, &item).is_none(),
-                Error::<T>::ItemAlreadyMinted
-            );
+            let minter = ensure_signed(origin)?;
 
-            // Lookup collection listing
-            match <CollectionListings<T>>::get(collection) {
-                None => return Err(DispatchError::from(Error::<T>::NoListing)),
-                Some(listing) => {
-                    match T::Uniques::collection_owner(&collection) {
-                        None => return Err(DispatchError::from(Error::<T>::InvalidCollection)),
-                        Some(owner) => {
+            // Ensure collection exists
+            match T::Uniques::collection_owner(&collection) {
+                None => return Err(DispatchError::from(Error::<T>::InvalidCollection)),
+                Some(owner) => {
+                    ensure!(
+                        T::Uniques::owner(&collection, &item).is_none(),
+                        Error::<T>::ItemAlreadyMinted
+                    ); // Ensure item not already minted
+
+                    // Ensure collection listed
+                    match <CollectionListings<T>>::get(collection) {
+                        None => return Err(DispatchError::from(Error::<T>::NoListing)),
+                        Some(listing) => {
                             // Check if asset matches listing
                             if listing.asset == asset {
                                 // Ensure buyer has sufficient funds
                                 ensure!(
-                                    Self::balance(asset, &buyer) >= listing.price,
+                                    Self::balance(asset, &minter) >= listing.price,
                                     <Error<T>>::InsufficientBalance
                                 );
-                                // Exchange funds for unique
-                                Self::transfer(asset, &buyer, &owner, listing.price)?;
-                                T::Uniques::mint_into(&collection, &item, &buyer)?;
                             } else {
                                 let swap_price =
                                     T::DEX::price(listing.price, listing.asset, asset)?;
                                 // Ensure buyer has sufficient funds
                                 ensure!(
-                                    Self::balance(asset, &buyer) >= swap_price,
+                                    Self::balance(asset, &minter) >= swap_price,
                                     <Error<T>>::InsufficientBalance
                                 );
 
                                 // Swap the funds via the dex
                                 // todo: DEX needs functionality to be able to specify minimum quantity returned
-                                T::DEX::swap(swap_price, asset, listing.asset, &buyer)?;
-
-                                // Exchange funds for unique
-                                Self::transfer(listing.asset, &buyer, &owner, listing.price)?;
-                                T::Uniques::mint_into(&collection, &item, &buyer)?;
+                                T::DEX::swap(swap_price, asset, listing.asset, &minter)?;
                             }
+
+                            // Exchange funds for unique
+                            Self::transfer(listing.asset, &minter, &owner, listing.price)?;
+                            T::Uniques::mint_into(&collection, &item, &minter)?;
+                            Self::deposit_event(Event::ItemDelisted(collection, item));
                         }
                     }
                 }
             }
 
-            // Finally remove listing and emit event
-            <ItemListings<T>>::remove((collection, item));
-            Self::deposit_event(Event::ItemDelisted(collection, item));
             Ok(())
         }
 
