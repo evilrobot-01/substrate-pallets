@@ -99,7 +99,7 @@ fn lists_collection() {
         ));
 
         let listing = CollectionListings::<Test>::get(COLLECTION).unwrap();
-        assert_eq!(MINT_PRICE, listing.price);
+        assert_eq!(MINT_PRICE, listing.mint_price);
         assert_eq!(NATIVE_TOKEN, listing.asset);
     });
 }
@@ -210,7 +210,7 @@ fn lists_item() {
         ));
 
         let listing = ItemListings::<Test>::get((COLLECTION, ITEM)).unwrap();
-        assert_eq!(LIST_PRICE, listing.price);
+        assert_eq!(LIST_PRICE, listing.list_price);
         assert_eq!(NATIVE_TOKEN, listing.asset);
     });
 }

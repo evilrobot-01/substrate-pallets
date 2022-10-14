@@ -196,10 +196,7 @@ pub mod pallet {
             ensure!(T::exists(asset), Error::<T>::InvalidAsset); // Ensure assets exists
 
             // Create a listing
-            let listing = CollectionListing {
-                price: mint_price,
-                asset,
-            };
+            let listing = CollectionListing { mint_price, asset };
             <CollectionListings<T>>::set(collection, Some(listing));
             Self::deposit_event(Event::CollectionListed(collection, mint_price, asset));
             Ok(())
@@ -230,7 +227,10 @@ pub mod pallet {
             ensure!(T::exists(asset), Error::<T>::InvalidAsset); // Ensure assets exists
 
             // Create a listing, replacing any existing listing
-            let listing = ItemListing { price, asset };
+            let listing = ItemListing {
+                list_price: price,
+                asset,
+            };
             <ItemListings<T>>::set((collection, item), Some(listing));
             Self::deposit_event(Event::ItemListed(collection, item, price, asset));
             Ok(())
@@ -267,16 +267,16 @@ pub mod pallet {
                     match <CollectionListings<T>>::get(collection) {
                         None => return Err(DispatchError::from(Error::<T>::NoListing)),
                         Some(listing) => {
-                            // Check if asset matches listing
+                            // Check if asset matches collection listing
                             if listing.asset == asset {
                                 // Ensure buyer has sufficient funds
                                 ensure!(
-                                    Self::balance(asset, &minter) >= listing.price,
+                                    Self::balance(asset, &minter) >= listing.mint_price,
                                     <Error<T>>::InsufficientBalance
                                 );
                             } else {
                                 let swap_price =
-                                    T::DEX::price(listing.price, listing.asset, asset)?;
+                                    T::DEX::price(listing.mint_price, listing.asset, asset)?;
                                 // Ensure buyer has sufficient funds
                                 ensure!(
                                     Self::balance(asset, &minter) >= swap_price,
@@ -289,7 +289,7 @@ pub mod pallet {
                             }
 
                             // Exchange funds for unique
-                            Self::transfer(listing.asset, &minter, &owner, listing.price)?;
+                            Self::transfer(listing.asset, &minter, &owner, listing.mint_price)?;
                             T::Uniques::mint_into(&collection, &item, &minter)?;
                             Self::deposit_event(Event::ItemDelisted(collection, item));
                         }
@@ -382,12 +382,12 @@ pub mod pallet {
                             if listing.asset == asset {
                                 // Ensure buyer has sufficient funds
                                 ensure!(
-                                    Self::balance(asset, &buyer) >= listing.price,
+                                    Self::balance(asset, &buyer) >= listing.list_price,
                                     <Error<T>>::InsufficientBalance
                                 );
                             } else {
                                 let swap_price =
-                                    T::DEX::price(listing.price, listing.asset, asset)?;
+                                    T::DEX::price(listing.list_price, listing.asset, asset)?;
                                 // Ensure buyer has sufficient funds
                                 ensure!(
                                     Self::balance(asset, &buyer) >= swap_price,
@@ -400,7 +400,7 @@ pub mod pallet {
                             }
 
                             // Exchange funds for unique
-                            Self::transfer(listing.asset, &buyer, &owner, listing.price)?;
+                            Self::transfer(listing.asset, &buyer, &owner, listing.list_price)?;
                             <ItemListings<T>>::remove((collection, item));
                             T::Uniques::transfer(&collection, &item, &buyer)?;
                             Self::deposit_event(Event::ItemDelisted(collection, item));
