@@ -209,7 +209,7 @@ fn lists_item() {
             NATIVE_TOKEN
         ));
 
-        let listing = ItemListings::<Test>::get((COLLECTION, ITEM)).unwrap();
+        let listing = ItemListings::<Test>::get(COLLECTION, ITEM).unwrap();
         assert_eq!(LIST_PRICE, listing.list_price);
         assert_eq!(NATIVE_TOKEN, listing.asset);
     });
@@ -236,11 +236,39 @@ fn listed_item_cannot_be_transferred() {
             LIST_PRICE,
             NATIVE_TOKEN
         ));
-        assert!(ItemListings::<Test>::get((COLLECTION, ITEM)).is_some());
+        assert!(ItemListings::<Test>::get(COLLECTION, ITEM).is_some());
 
         assert_noop!(
             Uniques::transfer(RuntimeOrigin::signed(OWNER), COLLECTION, ITEM, VAULT),
             pallet_uniques::Error::<Test>::Locked
+        );
+    });
+}
+
+#[test]
+fn list_items_for_collection() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Uniques::create(
+            RuntimeOrigin::signed(OWNER),
+            COLLECTION,
+            OWNER
+        ));
+        assert_ok!(Uniques::mint(
+            RuntimeOrigin::signed(OWNER),
+            COLLECTION,
+            ITEM,
+            OWNER
+        ));
+        assert_ok!(Marketplace::list_item(
+            RuntimeOrigin::signed(OWNER),
+            COLLECTION,
+            ITEM,
+            LIST_PRICE,
+            NATIVE_TOKEN
+        ));
+        assert_eq!(
+            1,
+            ItemListings::<Test>::iter_prefix_values(COLLECTION).count()
         );
     });
 }
@@ -367,7 +395,7 @@ fn delists_item() {
             LIST_PRICE,
             NATIVE_TOKEN
         ));
-        assert!(ItemListings::<Test>::get((COLLECTION, ITEM)).is_some());
+        assert!(ItemListings::<Test>::get(COLLECTION, ITEM).is_some());
 
         // Delist item
         assert_ok!(Marketplace::delist_item(
@@ -375,7 +403,7 @@ fn delists_item() {
             COLLECTION,
             ITEM,
         ));
-        assert!(ItemListings::<Test>::get((COLLECTION, ITEM)).is_none());
+        assert!(ItemListings::<Test>::get(COLLECTION, ITEM).is_none());
     });
 }
 
@@ -533,7 +561,7 @@ fn purchase_removes_listing() {
         ),);
 
         // Ensure listing removed
-        assert!(ItemListings::<Test>::get((COLLECTION, ITEM)).is_none());
+        assert!(ItemListings::<Test>::get(COLLECTION, ITEM).is_none());
     });
 }
 

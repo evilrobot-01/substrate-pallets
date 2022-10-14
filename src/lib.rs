@@ -134,8 +134,14 @@ pub mod pallet {
 
     /// Stores item listings based on composite key of collection/item.
     #[pallet::storage]
-    pub(super) type ItemListings<T: Config> =
-        StorageMap<_, Twox64Concat, (CollectionIdOf<T>, ItemIdOf<T>), ItemListing<T>>;
+    pub(super) type ItemListings<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        CollectionIdOf<T>,
+        Twox64Concat,
+        ItemIdOf<T>,
+        ItemListing<T>,
+    >;
 
     // The various events emitted by the pallet.
     #[pallet::event]
@@ -231,7 +237,7 @@ pub mod pallet {
                 list_price: price,
                 asset,
             };
-            <ItemListings<T>>::set((collection, item), Some(listing));
+            <ItemListings<T>>::set(collection, item, Some(listing));
             Self::deposit_event(Event::ItemListed(collection, item, price, asset));
             Ok(())
         }
@@ -342,8 +348,8 @@ pub mod pallet {
             Self::ensure_item_owner(&sender, &collection, &item)?; // Ensure item exists and sender is owner
 
             // Check for listing and delist if found
-            if let Some(_) = <ItemListings<T>>::get((collection, item)) {
-                <ItemListings<T>>::remove((collection, item));
+            if let Some(_) = <ItemListings<T>>::get(collection, item) {
+                <ItemListings<T>>::remove(collection, item);
                 Self::deposit_event(Event::ItemDelisted(collection, item));
             }
 
@@ -374,7 +380,7 @@ pub mod pallet {
             match T::Uniques::owner(&collection, &item) {
                 None => return Err(DispatchError::from(Error::<T>::InvalidItem)),
                 Some(owner) => {
-                    match <ItemListings<T>>::get((collection, item)) {
+                    match <ItemListings<T>>::get(collection, item) {
                         // Ensure listing exists
                         None => return Err(DispatchError::from(Error::<T>::NoListing)),
                         Some(listing) => {
@@ -401,7 +407,7 @@ pub mod pallet {
 
                             // Exchange funds for unique
                             Self::transfer(listing.asset, &buyer, &owner, listing.list_price)?;
-                            <ItemListings<T>>::remove((collection, item));
+                            <ItemListings<T>>::remove(collection, item);
                             T::Uniques::transfer(&collection, &item, &buyer)?;
                             Self::deposit_event(Event::ItemDelisted(collection, item));
                         }
@@ -416,7 +422,7 @@ pub mod pallet {
     impl<T: Config> Locker<T::CollectionId, T::ItemId> for Pallet<T> {
         /// Check if the asset should be locked and prevent interactions with the asset from executing.
         fn is_locked(collection: T::CollectionId, item: T::ItemId) -> bool {
-            <ItemListings<T>>::contains_key((collection, item))
+            <ItemListings<T>>::contains_key(collection, item)
         }
     }
 }
