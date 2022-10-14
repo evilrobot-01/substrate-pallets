@@ -116,8 +116,14 @@ pub mod pallet {
 
     /// Stores liquidity pools based on composite key of asset pair.
     #[pallet::storage]
-    pub(super) type LiquidityPools<T: Config> =
-        StorageMap<_, Twox64Concat, (AssetIdOf<T>, AssetIdOf<T>), LiquidityPool<T>>;
+    pub(super) type LiquidityPools<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        AssetIdOf<T>,
+        Twox64Concat,
+        AssetIdOf<T>,
+        LiquidityPool<T>,
+    >;
 
     /// Stores a simple counter for liquidity pool asset (token) identifiers (starting at AssetIdOf<T>::max_value() and
     /// counting down).
@@ -212,12 +218,12 @@ pub mod pallet {
 
             // Get/create liquidity pool
             let key = (pair.0.asset, pair.1.asset);
-            let pool = match <LiquidityPools<T>>::get(key) {
+            let pool = match <LiquidityPools<T>>::get(key.0, key.1) {
                 Some(pool) => Result::<LiquidityPool<T>, DispatchError>::Ok(pool), // Type couldnt be inferred
                 None => {
                     // Create new pool, save and emit event
                     let pool = <LiquidityPool<T>>::new(key)?;
-                    <LiquidityPools<T>>::set(key, Some(pool.clone()));
+                    <LiquidityPools<T>>::set(key.0, key.1, Some(pool.clone()));
                     Self::deposit_event(Event::LiquidityPoolCreated(pair.0.asset, pair.1.asset));
                     Ok(pool)
                 }
@@ -267,7 +273,7 @@ pub mod pallet {
 
             // Get liquidity pool
             let pair = <Pair<T>>::from(asset_0, asset_1);
-            let pool = match <LiquidityPools<T>>::get(pair) {
+            let pool = match <LiquidityPools<T>>::get(pair.0, pair.1) {
                 Some(pool) => Result::<LiquidityPool<T>, DispatchError>::Ok(pool), // Type couldnt be inferred
                 None => Err(DispatchError::from(Error::<T>::NoPool)),
             }?;
@@ -363,7 +369,7 @@ pub mod pallet {
 
             // Get liquidity pool
             let pair = <Pair<T>>::from(asset, other);
-            let pool = match <LiquidityPools<T>>::get(pair) {
+            let pool = match <LiquidityPools<T>>::get(pair.0, pair.1) {
                 Some(pool) => Ok(pool),
                 None => Err(DispatchError::from(Error::<T>::NoPool)),
             }?;
@@ -402,7 +408,7 @@ pub mod pallet {
                 let pair = <Pair<T>>::from_values(amount_0.0, amount_0.1, amount_1.0, amount_1.1);
                 let key = (pair.0.asset, pair.1.asset);
                 assert!(
-                    !LiquidityPools::<T>::contains_key(key),
+                    !LiquidityPools::<T>::contains_key(key.0, key.1),
                     "Liquidity pool id already in use"
                 );
                 assert!(
@@ -419,7 +425,7 @@ pub mod pallet {
                     .expect("Expect to be able to create a new liquidity pool during genesis.");
                 pool.add((pair.0.value, pair.1.value), &liquidity_provider)
                     .expect("Expect to be able to add liquidity during genesis.");
-                LiquidityPools::<T>::insert(key, pool);
+                LiquidityPools::<T>::insert(key.0, key.1, pool);
             }
         }
     }

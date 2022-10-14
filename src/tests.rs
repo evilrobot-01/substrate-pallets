@@ -330,7 +330,7 @@ fn adds_liquidity() {
         ));
 
         // Ensure liquidity pool (and token) token created as asset
-        let pool = LiquidityPools::<Test>::get((ASSET_0, ASSET_1)).unwrap();
+        let pool = LiquidityPools::<Test>::get(ASSET_0, ASSET_1).unwrap();
         assert!(Assets::maybe_total_supply(pool.id).is_some());
 
         // Check resulting balances
@@ -339,6 +339,56 @@ fn adds_liquidity() {
         assert_eq!(Assets::balance(pool.id, &LP), 20 * UNITS);
 
         check_pool_balances((ASSET_0, ASSET_1), (20 * UNITS, 10 * UNITS, 20 * UNITS));
+    });
+}
+
+#[test]
+fn list_pools_for_asset() {
+    new_test_ext().execute_with(|| {
+        // Create assets and fund
+        assert_ok!(Assets::force_create(
+            RuntimeOrigin::root(),
+            ASSET_0,
+            ADMIN,
+            true,
+            MIN_BALANCE
+        ));
+        assert_ok!(Assets::force_create(
+            RuntimeOrigin::root(),
+            ASSET_1,
+            ADMIN,
+            true,
+            MIN_BALANCE
+        ));
+        assert_ok!(Assets::mint(
+            RuntimeOrigin::signed(ADMIN),
+            ASSET_0,
+            LP,
+            100 * UNITS
+        ));
+        assert_ok!(Assets::mint(
+            RuntimeOrigin::signed(ADMIN),
+            ASSET_1,
+            LP,
+            100 * UNITS
+        ));
+
+        // Add liquidity to pool
+        assert_ok!(DEX::add_liquidity(
+            RuntimeOrigin::signed(LP),
+            10 * UNITS,
+            ASSET_1,
+            20 * UNITS,
+            ASSET_0, // Intentionally placed lower id in second position to test ordering
+            DEADLINE
+        ));
+
+        // Ensure we can list all available liquidity pools by (sorted) primary asset
+        LiquidityPools::<Test>::get(ASSET_0, ASSET_1).unwrap();
+        assert_eq!(
+            1,
+            LiquidityPools::<Test>::iter_prefix_values(ASSET_0).count()
+        );
     });
 }
 
@@ -396,7 +446,7 @@ fn adds_more_liquidity() {
         ));
 
         // Ensure liquidity pool (and token) token created as asset
-        let pool = LiquidityPools::<Test>::get((ASSET_0, ASSET_1)).unwrap();
+        let pool = LiquidityPools::<Test>::get(ASSET_0, ASSET_1).unwrap();
         assert!(Assets::maybe_total_supply(pool.id).is_some());
 
         // Check resulting balances
@@ -585,7 +635,7 @@ fn removes_liquidity() {
         // Check resulting balances
         assert_eq!(Assets::balance(ASSET_0, &LP), 80 * UNITS);
         assert_eq!(Assets::balance(ASSET_1, &LP), 90 * UNITS);
-        let pool = LiquidityPools::<Test>::get((ASSET_0, ASSET_1)).unwrap();
+        let pool = LiquidityPools::<Test>::get(ASSET_0, ASSET_1).unwrap();
         assert_eq!(Assets::balance(pool.id, &LP), 20 * UNITS);
 
         assert_ok!(DEX::remove_liquidity(
@@ -647,7 +697,7 @@ fn removes_some_liquidity() {
         // Check resulting balances
         assert_eq!(Assets::balance(ASSET_0, &LP), 80 * UNITS);
         assert_eq!(Assets::balance(ASSET_1, &LP), 90 * UNITS);
-        let pool = LiquidityPools::<Test>::get((ASSET_0, ASSET_1)).unwrap();
+        let pool = LiquidityPools::<Test>::get(ASSET_0, ASSET_1).unwrap();
         assert_eq!(Assets::balance(pool.id, &LP), 20 * UNITS);
 
         assert_ok!(DEX::remove_liquidity(
@@ -1023,7 +1073,7 @@ fn swaps_asset_1() {
 }
 
 fn check_pool_balances(pool: (u32, u32), expected: (u128, u128, u128)) {
-    let liquidity_pool = LiquidityPools::<Test>::get(pool).unwrap();
+    let liquidity_pool = LiquidityPools::<Test>::get(pool.0, pool.1).unwrap();
     assert_eq!(Assets::balance(pool.0, &liquidity_pool.account), expected.0);
     assert_eq!(Assets::balance(pool.1, &liquidity_pool.account), expected.1);
     assert_eq!(Assets::total_issuance(liquidity_pool.id), expected.2);

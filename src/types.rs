@@ -169,7 +169,7 @@ impl<T: Config> LiquidityPool<T> {
 
         // Get liquidity pool
         let pair = <Pair<T>>::from(asset, other);
-        <LiquidityPools<T>>::get(pair).map_or_else(
+        <LiquidityPools<T>>::get(pair.0, pair.1).map_or_else(
             // Return error if not found
             || Err(DispatchError::from(Error::<T>::NoPool)),
             // Otherwise calculate price of supplied amount
