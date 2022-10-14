@@ -130,15 +130,15 @@ pub mod pallet {
     /// Stores item listings based on composite key of collection/item.
     #[pallet::storage]
     pub(super) type CollectionListings<T: Config> =
-        StorageMap<_, Twox64Concat, CollectionIdOf<T>, CollectionListing<T>>;
+        StorageMap<_, Blake2_128Concat, CollectionIdOf<T>, CollectionListing<T>>;
 
     /// Stores item listings based on composite key of collection/item.
     #[pallet::storage]
     pub(super) type ItemListings<T: Config> = StorageDoubleMap<
         _,
-        Twox64Concat,
+        Blake2_128Concat,
         CollectionIdOf<T>,
-        Twox64Concat,
+        Blake2_128Concat,
         ItemIdOf<T>,
         ItemListing<T>,
     >;
