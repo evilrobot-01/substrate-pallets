@@ -118,9 +118,9 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type LiquidityPools<T: Config> = StorageDoubleMap<
         _,
-        Twox64Concat,
+        Blake2_128Concat,
         AssetIdOf<T>,
-        Twox64Concat,
+        Blake2_128Concat,
         AssetIdOf<T>,
         LiquidityPool<T>,
     >;
