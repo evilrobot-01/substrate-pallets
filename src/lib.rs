@@ -19,6 +19,9 @@ pub mod pallet {
         /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
+        // The origin which may configure the pallet.
+        type ConfigureOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
         /// The type of price.
         type Price: AtLeast32BitUnsigned + MaybeSerializeDeserialize + Parameter + From<Self::Value>;
 
@@ -76,11 +79,11 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// A sample dispatchable that takes a query identifier as a parameter, writes it to
-        /// storage and emits an event. This function must be dispatched by the root origin.
+        /// storage and emits an event. This function must be dispatched by the configured origin.
         #[pallet::call_index(0)]
         pub fn configure(origin: OriginFor<T>, query_id: T::QueryId) -> DispatchResult {
-            // Only root can configure the pallet
-            ensure_root(origin)?;
+            // Only the configured origin can configure the pallet.
+            T::ConfigureOrigin::ensure_origin(origin)?;
             // Store the query identifier
             <Configuration<T>>::put(query_id);
             // Emit an event
