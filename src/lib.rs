@@ -4,7 +4,7 @@ pub use pallet::*;
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
-    use frame_support::{dispatch::Vec, pallet_prelude::*, sp_runtime::Saturating, traits::Time};
+    use frame_support::{pallet_prelude::*, sp_runtime::Saturating, traits::Time};
     use frame_system::pallet_prelude::*;
     use sp_arithmetic::traits::AtLeast32BitUnsigned;
     use tellor::traits::UsingTellor;
@@ -28,9 +28,9 @@ pub mod pallet {
         /// The UsingTellor trait helps pallets read data from Tellor.
         type Tellor: UsingTellor<
             Self::AccountId,
+            Self::Price,
             Self::QueryId,
             <Self::Time as Time>::Moment,
-            Vec<u8>,
         >;
 
         /// The on-chain time provider.
@@ -125,17 +125,12 @@ pub mod pallet {
                 .and_then(|(value, timestamp_retrieved)| {
                     // Check that the data is not too old
                     if timestamp.saturating_sub(timestamp_retrieved) < ONE_DAY.into() {
-                        // Use the helper function to parse the bytes to a price
-                        Self::bytes_to_price(value)
-                        //return T::Tellor::bytes_to_price(value);
+                        // Use the helper function to parse the value to a price
+                        T::Tellor::value_to_price(value)
                     } else {
                         None
                     }
                 })
-        }
-
-        fn bytes_to_price(value: Vec<u8>) -> Option<T::Price> {
-            Some(u32::from_be_bytes(value[..4].try_into().unwrap()).into())
         }
     }
 }
