@@ -1,104 +1,141 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-/// Edit this file to define custom logic or remove it if it is not needed.
-/// Learn more about FRAME and the core library of Substrate FRAME pallets:
-/// <https://docs.substrate.io/reference/frame-pallets/>
 pub use pallet::*;
 
-#[cfg(test)]
-mod mock;
-
-#[cfg(test)]
-mod tests;
-
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
-
-#[frame_support::pallet]
+#[frame_support::pallet(dev_mode)]
 pub mod pallet {
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
+    use frame_support::{dispatch::Vec, pallet_prelude::*, sp_runtime::Saturating, traits::Time};
+    use frame_system::pallet_prelude::*;
+    use sp_arithmetic::traits::AtLeast32BitUnsigned;
+    use tellor::traits::UsingTellor;
 
-	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
-	pub struct Pallet<T>(_);
+    #[pallet::pallet]
+    #[pallet::generate_store(pub(super) trait Store)]
+    pub struct Pallet<T>(_);
 
-	/// Configure the pallet by specifying the parameters and types on which it depends.
-	#[pallet::config]
-	pub trait Config: frame_system::Config {
-		/// Because this pallet emits events, it depends on the runtime's definition of an event.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-	}
+    /// Configure the pallet by specifying the parameters and types on which it depends.
+    #[pallet::config]
+    pub trait Config: frame_system::Config {
+        /// Because this pallet emits events, it depends on the runtime's definition of an event.
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-	// The pallet's runtime storage items.
-	// https://docs.substrate.io/main-docs/build/runtime-storage/
-	#[pallet::storage]
-	#[pallet::getter(fn something)]
-	// Learn more about declaring storage items:
-	// https://docs.substrate.io/main-docs/build/runtime-storage/#declaring-storage-items
-	pub type Something<T> = StorageValue<_, u32>;
+        /// The type of price.
+        type Price: AtLeast32BitUnsigned + MaybeSerializeDeserialize + Parameter + From<Self::Value>;
 
-	// Pallets use events to inform users when important changes are made.
-	// https://docs.substrate.io/main-docs/build/events-errors/
-	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event<T: Config> {
-		/// Event documentation should end with an array that provides descriptive names for event
-		/// parameters. [something, who]
-		SomethingStored { something: u32, who: T::AccountId },
-	}
+        /// The type of query identifier.
+        type QueryId: Copy + MaybeSerializeDeserialize + Parameter;
 
-	// Errors inform users that something went wrong.
-	#[pallet::error]
-	pub enum Error<T> {
-		/// Error names should be descriptive.
-		NoneValue,
-		/// Errors should have helpful documentation associated with them.
-		StorageOverflow,
-	}
+        /// The UsingTellor trait helps pallets read data from Tellor.
+        type Tellor: UsingTellor<
+            Self::AccountId,
+            Self::QueryId,
+            <Self::Time as Time>::Moment,
+            Vec<u8>,
+        >;
 
-	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
-	// These functions materialize as "extrinsics", which are often compared to transactions.
-	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {
-		/// An example dispatchable that takes a singles value as a parameter, writes the value to
-		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
-		#[pallet::call_index(0)]
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
-		pub fn do_something(origin: OriginFor<T>, something: u32) -> DispatchResult {
-			// Check that the extrinsic was signed and get the signer.
-			// This function will return an error if the extrinsic is not signed.
-			// https://docs.substrate.io/main-docs/build/origins/
-			let who = ensure_signed(origin)?;
+        /// The on-chain time provider.
+        type Time: Time<Moment = Self::Timestamp>;
 
-			// Update storage.
-			<Something<T>>::put(something);
+        /// The type of timestamp.
+        type Timestamp: AtLeast32BitUnsigned + Copy + From<u64>;
 
-			// Emit an event.
-			Self::deposit_event(Event::SomethingStored { something, who });
-			// Return a successful DispatchResultWithPostInfo
-			Ok(())
-		}
+        // The type of resulting value stored.
+        type Value: AtLeast32BitUnsigned + Copy + Parameter + From<Self::Price>;
+    }
 
-		/// An example dispatchable that may throw a custom error.
-		#[pallet::call_index(1)]
-		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1,1).ref_time())]
-		pub fn cause_error(origin: OriginFor<T>) -> DispatchResult {
-			let _who = ensure_signed(origin)?;
+    // The pallet's runtime storage items.
+    #[pallet::storage]
+    #[pallet::getter(fn config)]
+    pub type Configuration<T> = StorageValue<_, <T as Config>::QueryId>;
+    #[pallet::storage]
+    #[pallet::getter(fn values)]
+    pub type Values<T> = StorageMap<
+        _,
+        Blake2_128Concat,
+        <T as frame_system::Config>::AccountId,
+        <T as Config>::Value,
+    >;
 
-			// Read a value from storage.
-			match <Something<T>>::get() {
-				// Return an error if the value has not been set.
-				None => return Err(Error::<T>::NoneValue.into()),
-				Some(old) => {
-					// Increment the value read from storage; will error in the event of overflow.
-					let new = old.checked_add(1).ok_or(Error::<T>::StorageOverflow)?;
-					// Update the value in storage with the incremented result.
-					<Something<T>>::put(new);
-					Ok(())
-				},
-			}
-		}
-	}
+    // Pallets use events to inform users when important changes are made.
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
+        /// The pallet was configured with a query identifier. [queryId]
+        Configured { query_id: T::QueryId },
+        /// A value was stored. [value, who]
+        ValueStored { value: T::Value, who: T::AccountId },
+    }
+
+    // Errors inform users that something went wrong.
+    #[pallet::error]
+    pub enum Error<T> {
+        /// The pallet has not been configured.
+        NotConfigured,
+    }
+
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
+        /// A sample dispatchable that takes a query identifier as a parameter, writes it to
+        /// storage and emits an event. This function must be dispatched by the root origin.
+        #[pallet::call_index(0)]
+        pub fn configure(origin: OriginFor<T>, query_id: T::QueryId) -> DispatchResult {
+            // Only root can configure the pallet
+            ensure_root(origin)?;
+            // Store the query identifier
+            <Configuration<T>>::put(query_id);
+            // Emit an event
+            Self::deposit_event(Event::Configured { query_id });
+            Ok(())
+        }
+
+        /// A sample dispatchable that takes a single value as a parameter, derives some new value
+        /// and then writes that derived value to storage and emits an event. This function must be
+        /// dispatched by a signed extrinsic.
+        #[pallet::call_index(1)]
+        pub fn do_something(origin: OriginFor<T>, value: T::Value) -> DispatchResult {
+            // Check that the extrinsic was signed and get the signer.
+            let who = ensure_signed(origin)?;
+            // Get the query identifier, ensuring that the pallet has been configured
+            let Some(query_id) = <Configuration<T>>::get() else { return Err(Error::<T>::NotConfigured.into()) };
+            // Get the price from the configured query identifier
+            if let Some(price) = Self::get_price(query_id) {
+                // Derive some value from the price
+                let derived_value = price.saturating_mul(value.into()).into();
+                // Update storage
+                <Values<T>>::set(&who, Some(derived_value));
+                // Emit an event
+                Self::deposit_event(Event::ValueStored {
+                    value: derived_value,
+                    who,
+                });
+            }
+            Ok(())
+        }
+    }
+
+    const FIFTEEN_MINUTES: u64 = 15 * 60 * 1_000;
+    const ONE_DAY: u64 = 24 * 60 * 60 * 1_000;
+
+    impl<T: Config> Pallet<T> {
+        fn get_price(query_id: T::QueryId) -> Option<T::Price> {
+            let timestamp = T::Time::now();
+
+            // Retrieve data at least 15 minutes old to allow time for disputes
+            T::Tellor::get_data_before(query_id, timestamp.saturating_sub(FIFTEEN_MINUTES.into()))
+                .and_then(|(value, timestamp_retrieved)| {
+                    // Check that the data is not too old
+                    if timestamp.saturating_sub(timestamp_retrieved) < ONE_DAY.into() {
+                        // Use the helper function to parse the bytes to a price
+                        Self::bytes_to_price(value)
+                        //return T::Tellor::bytes_to_price(value);
+                    } else {
+                        None
+                    }
+                })
+        }
+
+        fn bytes_to_price(value: Vec<u8>) -> Option<T::Price> {
+            Some(u32::from_be_bytes(value[..4].try_into().unwrap()).into())
+        }
+    }
 }
